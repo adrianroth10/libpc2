@@ -15,34 +15,39 @@ set(Boost_ADDITIONAL_VERSIONS "1.67" "1.67.0")
 find_package(Boost 1.67 REQUIRED COMPONENTS log iostreams system thread)
 add_definitions(-DBOOST_LOG_DYN_LINK)
 
-### 
-# GUnit stuff 
-###
+set(IS_CMAKE_ROOT CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 
-configure_file(CMakeLists.txt.in ${CMAKE_BINARY_DIR}/GUnit-download/CMakeLists.txt)
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/GUnit-download )
-if(result)
-  message(FATAL_ERROR "CMake step for gunit failed: ${result}")
+if(${IS_CMAKE_ROOT})
+  # Not to be done if subdirectory CMAKELISTS
+  ###
+  # GUnit stuff
+  ###
+
+  configure_file(CMakeLists.txt.in ${CMAKE_BINARY_DIR}/GUnit-download/CMakeLists.txt)
+  execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+    RESULT_VARIABLE result
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/GUnit-download )
+  if(result)
+    message(FATAL_ERROR "CMake step for gunit failed: ${result}")
+  endif()
+  execute_process(COMMAND ${CMAKE_COMMAND} --build .
+    RESULT_VARIABLE result
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/GUnit-download )
+  if(result)
+    message(FATAL_ERROR "Build step for gunit failed: ${result}")
+  endif()
+
+
+  ## Add googletest directly to our build. This defines
+  ## the gtest and gtest_main targets.
+  add_subdirectory(${CMAKE_BINARY_DIR}/gunit-src
+                   ${CMAKE_BINARY_DIR}/gunit-build
+                   EXCLUDE_FROM_ALL)
+
+  ###
+  # End gunit
+  ###
 endif()
-execute_process(COMMAND ${CMAKE_COMMAND} --build .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/GUnit-download )
-if(result)
-  message(FATAL_ERROR "Build step for gunit failed: ${result}")
-endif()
-
-
-## Add googletest directly to our build. This defines
-## the gtest and gtest_main targets.
-add_subdirectory(${CMAKE_BINARY_DIR}/gunit-src
-                 ${CMAKE_BINARY_DIR}/gunit-build
-                 EXCLUDE_FROM_ALL)
-
-###
-# End gunit
-###
 
 list(APPEND SRC_FILES 
     masterlink/telegram.cpp
@@ -69,21 +74,25 @@ add_library(pc2 STATIC ${SRC_FILES})
 
 add_test(NAME UnitTests COMMAND libpc2_tests)
 
-add_executable(libpc2_tests ${TESTING_SRC_FILES} ${SRC_FILES} ${PROTO_SRCS} ${PROTO_HDRS})
 
 target_include_directories(pc2 PUBLIC .)
-
-target_include_directories(libpc2_tests PUBLIC ${GUnit_SOURCE_DIR}/include)
-target_include_directories(libpc2_tests PUBLIC ${gtest_SOURCE_DIR}/include)
-target_include_directories(libpc2_tests PUBLIC ${gmock_SOURCE_DIR}/include)
-target_include_directories(libpc2_tests PUBLIC .)
 
 target_link_libraries(pc2 usb-1.0)
 target_link_libraries(pc2 Boost::log)
 target_link_libraries(pc2 ${Protobuf_LIBRARIES})
 
-target_link_libraries(libpc2_tests gtest_main)
-target_link_libraries(libpc2_tests gmock_main)
-target_link_libraries(libpc2_tests usb-1.0)
-target_link_libraries(libpc2_tests Boost::log)
-target_link_libraries(libpc2_tests ${Protobuf_LIBRARIES})
+
+if(${IS_CMAKE_ROOT})
+  add_executable(libpc2_tests ${TESTING_SRC_FILES} ${SRC_FILES} ${PROTO_SRCS} ${PROTO_HDRS})
+
+  target_include_directories(libpc2_tests PUBLIC ${GUnit_SOURCE_DIR}/include)
+  target_include_directories(libpc2_tests PUBLIC ${gtest_SOURCE_DIR}/include)
+  target_include_directories(libpc2_tests PUBLIC ${gmock_SOURCE_DIR}/include)
+  target_include_directories(libpc2_tests PUBLIC .)
+
+  target_link_libraries(libpc2_tests gtest_main)
+  target_link_libraries(libpc2_tests gmock_main)
+  target_link_libraries(libpc2_tests usb-1.0)
+  target_link_libraries(libpc2_tests Boost::log)
+  target_link_libraries(libpc2_tests ${Protobuf_LIBRARIES})
+endif()
